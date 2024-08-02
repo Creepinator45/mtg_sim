@@ -1,10 +1,26 @@
-use std::{option, vec};
+use std::vec;
 
 #[derive(Clone, Debug, PartialEq)]
-struct MtgCard {
+struct BaseCard {
     value: u8,
-    play_prio_calc: fn(&GameState) -> i8,
-    play_card_fn: fn(&mut GameState, MtgCard),
+}
+#[derive(Clone, Debug, PartialEq)]
+struct BasicLand {
+    color: Color,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum Color {
+    W,
+    U,
+    B,
+    R,
+    G
+}
+#[derive(Clone, Debug, PartialEq)]
+enum MtgCard {
+    BaseCard(BaseCard),
+    BasicLand(BasicLand),
 }
 #[derive(Debug)]
 struct GameState {
@@ -28,109 +44,147 @@ impl GameState {
         fastrand::shuffle(&mut self.deck)
     }
     fn play_selector(&self) -> Option<MtgCard> {
-        let selected_card = self.hand.iter().max_by_key(|card| {(card.play_prio_calc)(self)}).unwrap().clone();
-        if (selected_card.play_prio_calc)(self) > 0 {
-            return Some(selected_card)
-        }
-        else {
+        let selected_card = self
+            .hand
+            .iter()
+            .max_by_key(|card| card.play_prio_calc(self))
+            .unwrap()
+            .clone();
+        if selected_card.play_prio_calc(self) > 0 {
+            return Some(selected_card);
+        } else {
             None
         }
     }
     fn play_selected_card(&mut self, selected_card: MtgCard) {
-        (selected_card.play_card_fn)(self, selected_card);
+        let hand_index = self
+                    .hand
+                    .iter()
+                    .position(|x| *x == selected_card)
+                    .expect("Card missing from hand");
+        selected_card.play_card_fn(self, hand_index);
     }
 }
 
-fn land_prio_calc(game_state: &GameState) -> i8 {
-    if game_state.has_played_land {
-        return 0
+impl MtgCard {
+    fn play_prio_calc(&self, game_state: &GameState) -> i8 {
+        match self {
+            MtgCard::BaseCard(card) => {
+                if card.value >= 30 {
+                    return 1
+                }
+                else {
+                    return 0
+                }
+            }
+            MtgCard::BasicLand(_) => {
+                if game_state.has_played_land {
+                    return 0
+                }
+                else {
+                    return 127
+                }
+            }
+        }
     }
-    else {
-        return 1
+
+    fn play_card_fn(&self, game_state: &mut GameState, hand_index: usize) {
+        if game_state.hand[hand_index] != *self {
+            panic!("Card not at expected position in hand")
+        }
+        
+        match self {
+            MtgCard::BaseCard(_) => {
+                game_state.hand.swap_remove(hand_index);
+                game_state.board.push(self.clone());
+            }
+            MtgCard::BasicLand(card) => {
+                game_state.hand.swap_remove(hand_index);
+                game_state.board.push(self.clone());
+                game_state.has_played_land = true;
+            }
+        }
     }
-}
-fn play_land(game_state: &mut GameState, land_to_play: MtgCard) {
-    let hand_index = game_state.hand.iter().position(|x| *x == land_to_play).expect("Card missing from hand");
-    game_state.hand.swap_remove(hand_index);
-    game_state.board.push(land_to_play);
-    game_state.has_played_land = true;
 }
 fn main() {
     let mut game = GameState {
         deck: vec![
-            MtgCard { value: 01, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 02, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 03, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 04, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 05, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 06, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 07, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 08, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 09, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 10, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 11, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 12, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 13, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 14, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 15, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 16, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 17, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 18, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 19, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 20, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 21, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 22, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 23, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 24, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 25, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 26, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 27, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 28, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 29, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 30, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 31, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 32, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 33, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 34, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 35, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 36, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 37, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 38, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 39, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 40, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 41, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 42, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 43, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 44, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 45, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 46, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 47, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 48, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 49, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 50, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 51, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 52, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 53, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 54, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 55, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 56, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 57, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 58, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 59, play_prio_calc: land_prio_calc, play_card_fn: play_land},
-            MtgCard { value: 60, play_prio_calc: land_prio_calc, play_card_fn: play_land},
+            MtgCard::BaseCard(BaseCard { value: 01 }),
+            MtgCard::BaseCard(BaseCard { value: 02 }),
+            MtgCard::BaseCard(BaseCard { value: 03 }),
+            MtgCard::BaseCard(BaseCard { value: 04 }),
+            MtgCard::BaseCard(BaseCard { value: 05 }),
+            MtgCard::BaseCard(BaseCard { value: 06 }),
+            MtgCard::BaseCard(BaseCard { value: 07 }),
+            MtgCard::BaseCard(BaseCard { value: 08 }),
+            MtgCard::BaseCard(BaseCard { value: 09 }),
+            MtgCard::BaseCard(BaseCard { value: 10 }),
+            MtgCard::BaseCard(BaseCard { value: 11 }),
+            MtgCard::BaseCard(BaseCard { value: 12 }),
+            MtgCard::BaseCard(BaseCard { value: 13 }),
+            MtgCard::BaseCard(BaseCard { value: 14 }),
+            MtgCard::BaseCard(BaseCard { value: 15 }),
+            MtgCard::BaseCard(BaseCard { value: 16 }),
+            MtgCard::BaseCard(BaseCard { value: 17 }),
+            MtgCard::BaseCard(BaseCard { value: 18 }),
+            MtgCard::BaseCard(BaseCard { value: 19 }),
+            MtgCard::BaseCard(BaseCard { value: 20 }),
+            MtgCard::BaseCard(BaseCard { value: 21 }),
+            MtgCard::BaseCard(BaseCard { value: 22 }),
+            MtgCard::BaseCard(BaseCard { value: 23 }),
+            MtgCard::BaseCard(BaseCard { value: 24 }),
+            MtgCard::BaseCard(BaseCard { value: 25 }),
+            MtgCard::BaseCard(BaseCard { value: 26 }),
+            MtgCard::BaseCard(BaseCard { value: 27 }),
+            MtgCard::BaseCard(BaseCard { value: 28 }),
+            MtgCard::BaseCard(BaseCard { value: 29 }),
+            MtgCard::BaseCard(BaseCard { value: 30 }),
+            MtgCard::BaseCard(BaseCard { value: 31 }),
+            MtgCard::BaseCard(BaseCard { value: 32 }),
+            MtgCard::BaseCard(BaseCard { value: 33 }),
+            MtgCard::BaseCard(BaseCard { value: 34 }),
+            MtgCard::BaseCard(BaseCard { value: 35 }),
+            MtgCard::BaseCard(BaseCard { value: 36 }),
+            MtgCard::BaseCard(BaseCard { value: 37 }),
+            MtgCard::BaseCard(BaseCard { value: 38 }),
+            MtgCard::BaseCard(BaseCard { value: 39 }),
+            MtgCard::BaseCard(BaseCard { value: 40 }),
+            MtgCard::BaseCard(BaseCard { value: 41 }),
+            MtgCard::BaseCard(BaseCard { value: 42 }),
+            MtgCard::BaseCard(BaseCard { value: 43 }),
+            MtgCard::BaseCard(BaseCard { value: 44 }),
+            MtgCard::BaseCard(BaseCard { value: 45 }),
+            MtgCard::BaseCard(BaseCard { value: 46 }),
+            MtgCard::BaseCard(BaseCard { value: 47 }),
+            MtgCard::BaseCard(BaseCard { value: 48 }),
+            MtgCard::BaseCard(BaseCard { value: 49 }),
+            MtgCard::BaseCard(BaseCard { value: 50 }),
+            MtgCard::BaseCard(BaseCard { value: 51 }),
+            MtgCard::BaseCard(BaseCard { value: 52 }),
+            MtgCard::BaseCard(BaseCard { value: 53 }),
+            MtgCard::BaseCard(BaseCard { value: 54 }),
+            MtgCard::BaseCard(BaseCard { value: 55 }),
+            MtgCard::BaseCard(BaseCard { value: 56 }),
+            MtgCard::BaseCard(BaseCard { value: 57 }),
+            MtgCard::BaseCard(BaseCard { value: 58 }),
+            MtgCard::BaseCard(BaseCard { value: 59 }),
+            MtgCard::BaseCard(BaseCard { value: 60 }),
         ],
         hand: Vec::new(),
         board: Vec::new(),
-        has_played_land: false
+        has_played_land: false,
     };
 
     game.shuffle();
-    game.draw(7);
-    if let Some(selected_card) = game.play_selector(){
-        game.play_selected_card(selected_card);
-    }
-    else {
-        println!("No card to play")
+    game.draw(30);
+
+    for _ in 0..30 {
+        if let Some(selected_card) = game.play_selector() {
+            println!("{:?}", selected_card);
+            game.play_selected_card(selected_card);
+        } else {
+            println!("No card to play")
+        }
     }
 
     println!("{:#?}", game);
